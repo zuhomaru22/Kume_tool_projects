@@ -1,2 +1,6 @@
-password.txt
-*.log
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.idea/
+.vscode/
