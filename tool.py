@@ -1,5 +1,6 @@
 print("=== ミニ便利ツール ===")
 print("1: あいさつ")
+print("2: 整数の足し算")
 print("3: 文字数カウント")
 print("9: 終了")
 
@@ -7,6 +8,10 @@ choice = input("メニュー番号を入力してください: ")
 
 if choice == "1":
     print("こんにちは！Gitチーム開発演習中です。")
+elif choice == "2":
+    num1 = int(input("1つ目の数: "))
+    num2 = int(input("2つ目の数: "))
+    print("計算結果:", num1 + num2)
 elif choice == "3":
     text = input("文字列を入力してください: ")
     print("文字数:", len(text))
