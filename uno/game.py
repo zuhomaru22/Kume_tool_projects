@@ -20,6 +20,7 @@ class Game:
         self.index = 0
         self.direction = 1
         self.winner: Player | None = None
+        self.pending_draws = 0
         self._setup()
 
     # ---------- 準備 ----------
@@ -116,7 +117,7 @@ class Game:
             return
 
         self._apply_effect(card)
-
+        
     def _apply_effect(self, card: Card) -> None:
         v = card.value
         if v is Value.SKIP:
@@ -124,14 +125,55 @@ class Game:
             self._advance(2)
         elif v is Value.REVERSE:
             self.direction *= -1
-            # 2人のときはスキップと同じ扱い
             self._advance(2 if len(self.players) == 2 else 1)
         elif v in (Value.DRAW2, Value.WILD4):
-            n = 2 if v is Value.DRAW2 else 4
-            victim = self._next_player()
-            victim.hand += self.draw_cards(n)
-            self._log(f"  {victim.name} は{n}枚引いてスキップ")
-            self._advance(2)
+            # 初回の枚数を足し合わせる
+            add_n = 2 if v is Value.DRAW2 else 4
+            self.pending_draws += add_n
+
+            # 誰も返せなくなるまで連鎖を繰り返すループ
+            while True:
+                victim = self._next_player()
+
+                # 次のプレイヤーが返せるカード（同じ値のドローカード、またはWILD4）を持っているか探す
+                stack_card = None
+                for c in victim.hand:
+                    if c.value is card.value or c.value is Value.WILD4:
+                        stack_card = c
+                        break
+
+                if stack_card:
+                    # --- 返せる場合（連鎖） ---
+                    # プレイヤーの位置をvictimに移動させる
+                    self._advance(1)
+
+                    # victimがカードを出す処理
+                    victim.hand.remove(stack_card)
+                    self.discard.append(stack_card)
+                    self.current_color = stack_card.color
+                    if stack_card.is_wild:
+                        self.current_color = victim.choose_color(self) if hasattr(victim, 'choose_color') else stack_card.color
+
+                    self._log(f"  {victim.name} も {stack_card.colored()} を出してドロー返し！")
+
+                    # 上ガリであがり判定
+                    if len(victim.hand) == 1:
+                        self._log(f"★ {victim.name}: UNO!")
+                    if not victim.hand:
+                        self.winner = victim
+                        return
+
+                    # 次の連鎖のためにカード情報と枚数を更新
+                    card = stack_card
+                    add_n = 2 if stack_card.value is Value.DRAW2 else 4
+                    self.pending_draws += add_n
+                else:
+                    # --- 返せない場合（ここで終了、ペナルティ確定） ---
+                    victim.hand += self.draw_cards(self.pending_draws)
+                    self._log(f"  {victim.name} は合計 {self.pending_draws} 枚引いてスキップ")
+                    self.pending_draws = 0  # リセット
+                    self._advance(2)  # カードを引いた人をスキップして次の人へ
+                    break
         else:
             self._advance()
 
